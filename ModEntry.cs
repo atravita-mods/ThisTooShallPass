@@ -24,7 +24,7 @@ namespace ThisTooShallPass
         private bool IsInWorld = false;
 
         internal static Dictionary<string, int> StartingAges;
-        internal static Dictionary<string, int> Health;
+        internal static Dictionary<string, int> Healths;
         internal static Dictionary<string, int> Birthdays;
         internal static Dictionary<string, int> Departures = new();
         internal static Dictionary<string, decimal> OtherRandoms = new();
@@ -139,21 +139,21 @@ namespace ThisTooShallPass
         {
             // load data from the custom assets instead of having them hardcoded
             StartingAges = helper.GameContent.Load<Dictionary<string, int>>("Mods/ThisTooShallPass/StartingAges");
-            Health = helper.GameContent.Load<Dictionary<string, int>>("Mods/ThisTooShallPass/Health");
+            Healths = helper.GameContent.Load<Dictionary<string, int>>("Mods/ThisTooShallPass/Healths");
             Birthdays = helper.GameContent.Load<Dictionary<string, int>>("Mods/ThisTooShallPass/Birthdays");
             Departures.Clear();
 
             // add in birthdays from normal NPCs
             var dispositions = helper.GameContent.Load<Dictionary<string, string>>("Data/NPCDispositions");
-            foreach ((string npcName, string val) in dispositions)
+            foreach ((string npcName, string disposition) in dispositions)
             {
-                // using starting ages as a reference for which npcs are allowed to age
-                // if they have no starting age then there's no point in saving the birthday
+                // If a character lacks a starting age, ignore them.
                 if (!StartingAges.ContainsKey(npcName))
                     continue;
 
+                string bday = disposition.GetChunk('/', 8);
+
                 // only add if the data is valid, and isn't overridden by the custom birthdays thing
-                var bday = val.GetChunk('/', 8);
                 if (bday != "" && int.TryParse(bday.GetChunk(' ', 1), out int day))
                     Birthdays.TryAdd(npcName, (Utility.getSeasonNumber(bday.GetChunk(' ', 0)) * 28) + day);
             }
@@ -166,8 +166,10 @@ namespace ThisTooShallPass
             {
                 var npc = Game1.getCharacterFromName(npcName);
                 decimal random = decimal.Parse(GetRandomFor(npc, npcName));
+                int health = Healths.TryGetValue(npcName, out int value) ? value : 0;
+                int birthday = Birthdays[npcName];
 
-                Departures[npcName] = ((int)(75 + Health[npcName] - age + random) * 112) - (112 - Birthdays[npcName]);
+                Departures[npcName] = ((int)(75 + health - age + random) * 112) - (112 - birthday);
             }
         }
         // where all the tokens are registered. put here to keep things tidy.
@@ -236,9 +238,6 @@ namespace ThisTooShallPass
                         who.Add(npcName);
                 return who;
             });
-
-            // Subtitute tokens
-            // FILL THESE IN LATER, OMEGA!
         }
         // use this for normal tokens
         private void RegisterNPCToken(string tokenGroup, Func<string, string> Getter)
