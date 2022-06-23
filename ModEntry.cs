@@ -177,7 +177,6 @@ namespace ThisTooShallPass
             CPAPI.RegisterToken(ModManifest, "EnableBecomeDatable", () => new[] { config.EnableBecomeDateable.ToString() });
             CPAPI.RegisterToken(ModManifest, "AllDead", () => new[] { config.AllDead.ToString() });
 
-            RegisterNPCToken("Birthday", (npcName) => Birthdays[npcName].ToString());
             RegisterNPCToken("Age", (npcName) =>
             {
                 int birthday = Birthdays[npcName];
@@ -191,7 +190,6 @@ namespace ThisTooShallPass
                 int age = startingage + EYear + correction;
                 return age.ToString();
             });
-            RegisterNPCToken("Random", (npcName) => GetRandomFor(Game1.getCharacterFromName(npcName), npcName));
 
             //must use trygetvalue on departures because CP tries to access them before NPCs are loaded
             RegisterNPCToken("Departure", (npcName) 
