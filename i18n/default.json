@@ -1,0 +1,8 @@
+﻿{
+	"config.EnableDeath.Name": "Can villagers die?",
+	"config.EnableDeath.Desc": "Toggles characters' abilities to die. If you want a vanilla SDV-esque experience with the difference being that characters merely get a bit older, this is the option for you. This is also highly recommended if you want to use TTSP in parallel with other mods!",
+	"config.EnableDateable.Name": "Can characters become dateable?",
+	"config.EnableDateable.Desc": "Toggles whether child characters (Jas, Leo, Vincent) become dateable once they age into adulthood. This option is here if the idea of that makes you uncomfortable.",
+	"config.AllDead.Name": "DEBUG: Is everyone dead?",
+	"config.AllDead.Desc": "FOR TESTING PURPOSES ONLY! Changing this to true will make EVERYONE be dead."
+}
