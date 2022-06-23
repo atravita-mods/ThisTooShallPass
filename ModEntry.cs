@@ -69,6 +69,17 @@ namespace ThisTooShallPass
 
             // Clear cached values
             NPCDynamicToken.UpdateAll();
+
+            // set the npc has invisible if they've departed.
+            foreach ((string npcName, int departure) in Departures)
+            {
+                if ((config.AllDead || DaysOverall >= departure) && config.EnableDeath && IsInWorld)
+                {
+                    var npc = Game1.getCharacterFromName(npcName, true);
+                    if (npc is not null)
+                        npc.IsInvisible = true;
+                }
+            }
         }
         private void SaveOtherRandoms()
         {
