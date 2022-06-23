@@ -247,8 +247,15 @@ namespace ThisTooShallPass
             TokenValues[tokenGroup] = Getter;
 
             // old code; registers by name + npc name
-            foreach (string npcName in StartingAges.Keys) 
+            foreach (string npcName in StartingAges.Keys)
+            {
+                // If at this stage a character lacks a birthday, ignore them
+                if (!Birthdays.ContainsKey(npcName))
+                    continue;
+
                 CPAPI.RegisterToken(ModManifest, npcName + tokenGroup, () => new[] { Getter(npcName) });
+            }
+
             //fancy code, allows using name:npc instead
             CPAPI.RegisterToken(ModManifest, tokenGroup, new NPCDynamicToken(Getter));
         }
