@@ -49,8 +49,12 @@ namespace ThisTooShallPass
         // reloads the data when it's changed by CP
         private void OnAssetChanged(object sender, AssetsInvalidatedEventArgs ev)
         {
-            ReloadData();
-            NPCDynamicToken.UpdateAll();
+            var parsed = this.Helper.GameContent.ParseAssetName("Data/NPCDispositions");
+            if (ev.NamesWithoutLocale.Contains(parsed))
+            {
+                ReloadData();
+                NPCDynamicToken.UpdateAll();
+            }
         }
         private void OnGameLaunched(object sender, GameLaunchedEventArgs ev)
         {
@@ -73,7 +77,7 @@ namespace ThisTooShallPass
             ReloadData();
             NPCDynamicToken.UpdateAll();
 
-            // set the npc has invisible if they've departed.
+            // Set NPC flags if they're dead.
             foreach ((string npcName, int departure) in Departures)
             {
                 if ((config.AllDead || DaysOverall >= departure) && config.EnableDeath && IsInWorld)
@@ -81,6 +85,8 @@ namespace ThisTooShallPass
                     var npc = Game1.getCharacterFromName(npcName, true);
                     if (npc is not null)
                     {
+                        Monitor.Log("C# unmanifesting of " + npcName, LogLevel.Debug);
+
                         npc.IsInvisible = true;
                         npc.Breather = false;
                         npc.datingFarmer = false;
@@ -94,17 +100,17 @@ namespace ThisTooShallPass
 
             // converts the otherRandoms to text in form "name:value,"
             StringBuilder builder = new();
-            foreach ((var name, var val) in OtherRandoms)
-                builder.Append(name).Append(':').Append(val).Append(',');
+            foreach ((string NPCname, var val) in OtherRandoms)
+                builder.Append(NPCname).Append(':').Append(val).Append(',');
             // saves it to player1
             Game1.player.modData["ThisTooShallPass.OtherRandoms"] = builder.ToString();
         }
         private void LoadOtherRandoms()
         {
-            Monitor.Log("Loading other randoms.", LogLevel.Debug);
-
             if (!Game1.player.modData.TryGetValue("ThisTooShallPass.OtherRandoms", out var list))
                 return; // no data to load
+
+            Monitor.Log("Loading other randoms.", LogLevel.Debug);
 
             var split = list.Split(',', StringSplitOptions.RemoveEmptyEntries);
             foreach (var item in split)
@@ -113,25 +119,25 @@ namespace ThisTooShallPass
 
         }
         // generates a new random value for an npc
-        private decimal GenerateRandom(string name)
-            => (decimal)Game1.random.NextDouble() + Game1.random.Next(10) - 5;
+        private decimal GenerateRandom(string npcName)
+            => (Game1.random.Next(11) - 5) + ((decimal)Game1.random.NextDouble() * (Game1.random.Next(2) * 2 - 1));
 
         // Gets the random value of the npc, or sets it if it does not exist.
-        private string GetRandomFor(NPC npc, string name)
+        private string GetRandomFor(NPC npc, string npcName)
         {
-            Monitor.Log("Gettings randoms for...", LogLevel.Debug);
-
             if (npc is null)
                 if (IsInWorld)
-                    return OtherRandoms.GetOrAdd(name, GenerateRandom).ToString();
+                    return OtherRandoms.GetOrAdd(npcName, GenerateRandom).ToString();
                 else
                     return "0";
+
+            Monitor.Log("Getting random for " + npcName, LogLevel.Debug);
 
             // saving and loading from moddata so that it is synchronized in multiplayer
             // and persisted with the save
             if (npc.modData.TryGetValue("ThisTooShallPass.Random", out string rand))
                 return rand;
-            rand = GenerateRandom(name).ToString();
+            rand = GenerateRandom(npcName).ToString();
             npc.modData["ThisTooShallPass.Random"] = rand;
 
             return rand;
@@ -140,13 +146,14 @@ namespace ThisTooShallPass
         // load stuff from the assets folder
         private void LoadLocalAssets(object sender, AssetRequestedEventArgs ev)
         {
-            Monitor.Log("Loading local assets...", LogLevel.Debug);
-
             // Instead of having all that stuff in hardcoded dictionaries, I'm storing it in a custom game asset, which can be edited or replaced via CP
             // Here I'm ~ magically ~ loading default values out of the assets folder to make sure it always exists
             // it takes the name of the asset and finds a json file of the same name in assets/data/
             if (ev.Name.IsDirectlyUnderPath("Mods/ThisTooShallPass"))
+            {
+                Monitor.Log("Loading local assets...", LogLevel.Debug);
                 ev.LoadFromModFile<Dictionary<string, int>>("assets/data/" + ev.Name.WithoutPath("Mods/ThisTooShallPass") + ".json", AssetLoadPriority.Low);
+            }
         }
 
         // reload
@@ -292,7 +299,13 @@ namespace ThisTooShallPass
             TokenValues[tokenGroup] = (s) => Getter(s).ToString();
 
             foreach (string npcName in StartingAges.Keys)
+            {
+                // If at this stage a character lacks a birthday, ignore them
+                if (!Birthdays.ContainsKey(npcName))
+                    continue;
+
                 CPAPI.RegisterToken(ModManifest, npcName + tokenGroup, () => new[] { Getter(npcName).ToString() });
+            }
         }
     }
 }
