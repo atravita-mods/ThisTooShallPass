@@ -176,7 +176,7 @@ namespace ThisTooShallPass
         private void RegisterTokens()
         {
             CPAPI.RegisterToken(ModManifest, "EnableDeath", () => new[] { config.EnableDeath.ToString() });
-            CPAPI.RegisterToken(ModManifest, "EnableBecomeDatable", () => new[] { config.EnableBecomeDateable.ToString() });
+            CPAPI.RegisterToken(ModManifest, "EnableBecomeDateable", () => new[] { config.EnableBecomeDateable.ToString() });
             CPAPI.RegisterToken(ModManifest, "AllDead", () => new[] { config.AllDead.ToString() });
 
             RegisterNPCToken("Age", (npcName) =>
@@ -242,11 +242,8 @@ namespace ThisTooShallPass
         // use this for normal tokens
         private void RegisterNPCToken(string tokenGroup, Func<string, string> Getter)
         {
-            // allows you to call your token code directly from c#
-            // example: string LewisAge = TokenValues["Age"]("Lewis");
             TokenValues[tokenGroup] = Getter;
 
-            // old code; registers by name + npc name
             foreach (string npcName in StartingAges.Keys)
             {
                 // If at this stage a character lacks a birthday, ignore them
@@ -256,29 +253,15 @@ namespace ThisTooShallPass
                 CPAPI.RegisterToken(ModManifest, npcName + tokenGroup, () => new[] { Getter(npcName) });
             }
 
-            //fancy code, allows using name:npc instead
             CPAPI.RegisterToken(ModManifest, tokenGroup, new NPCDynamicToken(Getter));
         }
         // use this for true/false tokens
         private void RegisterNPCToken(string tokenGroup, Func<string, bool> Getter)
         {
-            // allows you to call your token code directly from c#
-            // example: string LewisDead = TokenValues["Dead"]("Lewis");
             TokenValues[tokenGroup] = (s) => Getter(s).ToString();
 
-            // old code; registers by name + npc name
             foreach (string npcName in StartingAges.Keys)
                 CPAPI.RegisterToken(ModManifest, npcName + tokenGroup, () => new[] { Getter(npcName).ToString() });
-
-            //fancy code, allows using list-style tokens, like mailflags
-            CPAPI.RegisterToken(ModManifest, tokenGroup, () =>
-            {
-                List<string> output = new();
-                foreach (string npcName in StartingAges.Keys)
-                    if (Getter(npcName))
-                        output.Add(npcName);
-                return output;
-            });
         }
     }
 }
