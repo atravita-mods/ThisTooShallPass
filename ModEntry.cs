@@ -61,6 +61,8 @@ namespace ThisTooShallPass
         }
         private void OnDayStart(object sender, DayStartedEventArgs ev)
         {
+            Monitor.Log("Running day start code.", LogLevel.Debug);
+
             // original date math
             EYear = Game1.year - 1;
             SeasonOffset = Utility.getSeasonNumber(Game1.currentSeason) * 28;
@@ -68,6 +70,7 @@ namespace ThisTooShallPass
             DaysOverall = DayOfYear + (EYear * 28 * 4);
 
             // Clear cached values
+            ReloadData();
             NPCDynamicToken.UpdateAll();
 
             // set the npc has invisible if they've departed.
@@ -77,12 +80,18 @@ namespace ThisTooShallPass
                 {
                     var npc = Game1.getCharacterFromName(npcName, true);
                     if (npc is not null)
+                    {
                         npc.IsInvisible = true;
+                        npc.Breather = false;
+                        npc.datingFarmer = false;
+                    }
                 }
             }
         }
         private void SaveOtherRandoms()
         {
+            Monitor.Log("Saving other randoms.", LogLevel.Debug);
+
             // converts the otherRandoms to text in form "name:value,"
             StringBuilder builder = new();
             foreach ((var name, var val) in OtherRandoms)
@@ -92,6 +101,8 @@ namespace ThisTooShallPass
         }
         private void LoadOtherRandoms()
         {
+            Monitor.Log("Loading other randoms.", LogLevel.Debug);
+
             if (!Game1.player.modData.TryGetValue("ThisTooShallPass.OtherRandoms", out var list))
                 return; // no data to load
 
@@ -108,6 +119,8 @@ namespace ThisTooShallPass
         // Gets the random value of the npc, or sets it if it does not exist.
         private string GetRandomFor(NPC npc, string name)
         {
+            Monitor.Log("Gettings randoms for...", LogLevel.Debug);
+
             if (npc is null)
                 if (IsInWorld)
                     return OtherRandoms.GetOrAdd(name, GenerateRandom).ToString();
@@ -127,6 +140,8 @@ namespace ThisTooShallPass
         // load stuff from the assets folder
         private void LoadLocalAssets(object sender, AssetRequestedEventArgs ev)
         {
+            Monitor.Log("Loading local assets...", LogLevel.Debug);
+
             // Instead of having all that stuff in hardcoded dictionaries, I'm storing it in a custom game asset, which can be edited or replaced via CP
             // Here I'm ~ magically ~ loading default values out of the assets folder to make sure it always exists
             // it takes the name of the asset and finds a json file of the same name in assets/data/
@@ -137,6 +152,8 @@ namespace ThisTooShallPass
         // reload
         private void ReloadData()
         {
+            Monitor.Log("Reloading data...", LogLevel.Debug);
+
             // load data from the custom assets instead of having them hardcoded
             StartingAges = helper.GameContent.Load<Dictionary<string, int>>("Mods/ThisTooShallPass/StartingAges");
             Healths = helper.GameContent.Load<Dictionary<string, int>>("Mods/ThisTooShallPass/Healths");
@@ -167,14 +184,28 @@ namespace ThisTooShallPass
                 var npc = Game1.getCharacterFromName(npcName);
                 decimal random = decimal.Parse(GetRandomFor(npc, npcName));
                 int health = Healths.TryGetValue(npcName, out int value) ? value : 0;
-                int birthday = Birthdays[npcName];
+                int birthday = Birthdays.TryGetValue(npcName, out int valuei) ? valuei : 0;
 
-                Departures[npcName] = ((int)(75 + health - age + random) * 112) - (112 - birthday);
+                if (birthday == 0)
+                    continue;
+
+                // Globally, regardless of specific life expectancy, women are found to live ~5 years longer on average than men from the same region.
+
+                var disposition = dispositions.TryGetValue(npcName, out string valueii) ? valueii : "0/0/0/0/0";
+                string gender = disposition.GetChunk('/', 4);
+                int isFemale = 0;
+
+                if (gender == "female")
+                    isFemale = 5;
+
+                Departures[npcName] = ((int)(76 + health + isFemale - age + random) * 112) - (112 - birthday);
             }
         }
         // where all the tokens are registered. put here to keep things tidy.
         private void RegisterTokens()
         {
+            Monitor.Log("Registering tokens...", LogLevel.Debug);
+
             CPAPI.RegisterToken(ModManifest, "EnableDeath", () => new[] { config.EnableDeath.ToString() });
             CPAPI.RegisterToken(ModManifest, "EnableBecomeDateable", () => new[] { config.EnableBecomeDateable.ToString() });
             CPAPI.RegisterToken(ModManifest, "AllDead", () => new[] { config.AllDead.ToString() });
