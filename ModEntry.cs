@@ -1,4 +1,5 @@
-﻿using StardewModdingAPI;
+﻿using HarmonyLib;
+using StardewModdingAPI;
 using StardewModdingAPI.Events;
 using StardewModdingAPI.Utilities;
 using StardewValley;
@@ -45,7 +46,56 @@ namespace ThisTooShallPass
             helper.Events.GameLoop.SaveLoaded += (s, e) => { LoadOtherRandoms(); IsInWorld = true; };
             helper.Events.GameLoop.ReturnedToTitle += (s, e) => { IsInWorld = false; OtherRandoms.Clear(); };
             helper.Events.GameLoop.Saving += (s, e) => { SaveOtherRandoms(); };
+
+            // Harmony stuff
+
+            var harmony = new Harmony(this.ModManifest.UniqueID);
+
+            // example patch, you'll need to edit this for your patch
+            harmony.Patch(
+               original: AccessTools.Method(typeof(GameLocation.createQuestionDialogue), "checkAction"),
+               prefix: new HarmonyMethod(typeof(ObjectPatches), nameof(ObjectPatches.createQuestionDialogue_Prefix))
+            );
         }
+
+        public class ObjectPatches
+        {
+            private static IMonitor Monitor;
+
+            // call this method from your Entry class
+            public static void Initialize(IMonitor monitor)
+            {
+                Monitor = monitor;
+            }
+
+            public static bool createQuestionDialogue_Prefix(StardewValley.Object __instance, GameLocation location, Vector2 tile, ref bool __result)
+            {
+                try
+                {
+                    Game1.playSound("openBox");
+                    List<Response> responses = new List<Response>();
+                    responses.Add(new Response("Carpenter", Game1.content.LoadString("Strings\\Characters:Phone_Carpenter_Name"));
+                    responses.Add(new Response("Blacksmith", Game1.content.LoadString("Strings\\Characters:Phone_Blacksmith_Name"));
+                    responses.Add(new Response("SeedShop", Game1.content.LoadString("Strings\\Characters:Phone_GeneralStore_Name"));
+                    responses.Add(new Response("AnimalShop", Game1.content.LoadString("Strings\\Characters:Phone_Ranch_Name"));
+                    responses.Add(new Response("Saloon", Game1.content.LoadString("Strings\\Characters:Phone_Saloon_Name"));
+                    if (Game1.player.mailReceived.Contains("Gil_Telephone"))
+                    {
+                        responses.Add(new Response("AdventureGuild", Game1.content.LoadString("Strings\\Characters:Phone_Guild_Name")));
+                    }
+                    responses.Add(new Response("HangUp", Game1.content.LoadString("Strings\\Locations:MineCart_Destination_Cancel")));
+                    Game1.currentLocation.createQuestionDialogue(Game1.content.LoadString("Strings\\Characters:Phone_SelectNumber"), responses.ToArray(), "telephone");
+
+                    return false; // don't run original logic
+                }
+                catch (Exception ex)
+                {
+                    Monitor.Log($"Failed in {nameof(createQuestionDialogue_Prefix)}:\n{ex}", LogLevel.Error);
+                    return true; // run original logic
+                }
+            }
+        }
+
         // reloads the data when it's changed by CP
         private void OnAssetChanged(object sender, AssetsInvalidatedEventArgs ev)
         {
@@ -76,23 +126,6 @@ namespace ThisTooShallPass
             // Clear cached values
             ReloadData();
             NPCDynamicToken.UpdateAll();
-
-            // Set NPC flags if they're dead.
-            foreach ((string npcName, int departure) in Departures)
-            {
-                if ((config.AllDead || DaysOverall >= departure) && config.EnableDeath && IsInWorld)
-                {
-                    var npc = Game1.getCharacterFromName(npcName, true);
-                    if (npc is not null)
-                    {
-                        Monitor.Log("C# unmanifesting of " + npcName, LogLevel.Debug);
-
-                        npc.IsInvisible = true;
-                        npc.Breather = false;
-                        npc.datingFarmer = false;
-                    }
-                }
-            }
         }
         private void SaveOtherRandoms()
         {
@@ -206,6 +239,26 @@ namespace ThisTooShallPass
                     isFemale = 5;
 
                 Departures[npcName] = ((int)(76 + health + isFemale - age + random) * 112) - (112 - birthday);
+            }
+
+            // Set NPC flags if they're dead.
+            foreach ((string npcName, int departure) in Departures)
+            {
+                if ((config.AllDead || DaysOverall >= departure) && config.EnableDeath && IsInWorld)
+                {
+                    var npc = Game1.getCharacterFromName(npcName, true);
+                    if (npc is not null)
+                    {
+                        Monitor.Log("C# unmanifesting of " + npcName, LogLevel.Debug);
+
+                        npc.IsInvisible = true;
+                        npc.Breather = false;
+                        npc.datingFarmer = false;
+                        npc.followSchedule = false;
+                        npc.ignoreScheduleToday = true;
+                        npc.daysUntilNotInvisible = 666;
+                    }
+                }
             }
         }
         // where all the tokens are registered. put here to keep things tidy.
